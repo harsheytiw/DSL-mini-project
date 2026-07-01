@@ -3,8 +3,8 @@
 # Lines starting with # are comments and are ignored by the lexer.
 
 ADD STUDENT "Riya" MARKS 85
-ADD STUDENT "Aman" MARKS 70
-ADD STUDENT "Karan" MARKS 92
+ADD STUDENT "Aghastya" MARKS 70
+ADD STUDENT "Bonnie" MARKS 92
 
 SHOW STUDENT "Riya"
 SHOW ALL
