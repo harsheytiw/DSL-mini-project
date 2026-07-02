@@ -5,7 +5,6 @@ import tokens as tok
 
 
 class ParserError(Exception):
-    """A custom error type just for parser problems (like wrong word order)."""
     pass
 
 
