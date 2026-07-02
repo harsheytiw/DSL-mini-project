@@ -1,5 +1,6 @@
 # lexer.py
 
+import ply.lex as lex
 import tokens as tok
 
 
@@ -8,111 +9,55 @@ class LexerError(Exception):
 
 
 class Lexer:
+    tokens = tok.TOKENS
+    t_ignore = " \t"
+
     def __init__(self, source_code):
-        self.source = source_code      
-        self.pos = 0                   
-        self.line = 1                 
+        self.source = source_code
+        self.lexer = lex.lex(module=self)
 
-    def current_char(self):
-        if self.pos >= len(self.source):
-            return None
-        return self.source[self.pos]
+    def t_STRING(self, t):
+        r'"([^"\n])*"'
+        t.value = t.value[1:-1]
+        return t
 
-    def advance(self):
-        if self.current_char() == "\n":
-            self.line += 1
-        self.pos += 1
+    def t_NUMBER(self, t):
+        r'-?\d+'
+        t.value = int(t.value)
+        return t
 
-    def peek(self):
-        peek_pos = self.pos + 1
-        if peek_pos >= len(self.source):
-            return None
-        return self.source[peek_pos]
+    def t_COMMENT(self, t):
+        r'\#.*'
+        pass
 
-    def skip_whitespace(self):
-        while self.current_char() is not None and self.current_char() in " \t\n\r":
-            self.advance()
-
-    def skip_comment(self):
-        while self.current_char() is not None and self.current_char() != "\n":
-            self.advance()
-
-    def read_string(self):
-        start_line = self.line
-        self.advance()  
-        result = ""
-        while self.current_char() is not None and self.current_char() != '"':
-            result += self.current_char()
-            self.advance()
-
-        if self.current_char() is None:
-            
+    def t_WORD(self, t):
+        r'[A-Za-z]+'
+        token_type = tok.KEYWORDS.get(t.value)
+        if token_type is None:
             raise LexerError(
-                f"Lexer Error (line {start_line}): Missing closing quote (\") for string."
+                f"Lexer Error (line {t.lineno}): Unknown word '{t.value}'. "
+                "Did you forget quotes around a name?"
             )
+        t.type = token_type
+        return t
 
-        self.advance()  
-        return tok.Token(tok.STRING, result, start_line)
+    def t_NEWLINE(self, t):
+        r'\n+'
+        t.lexer.lineno += t.value.count("\n")
 
-    def read_number(self):
-        start_line = self.line
-        result = ""
-        while self.current_char() is not None and self.current_char().isdigit():
-            result += self.current_char()
-            self.advance()
-        return tok.Token(tok.NUMBER, int(result), start_line)
-
-    def read_word(self):
-        start_line = self.line
-        result = ""
-        while self.current_char() is not None and self.current_char().isalpha():
-            result += self.current_char()
-            self.advance()
-
-        if result in tok.KEYWORDS:
-            return tok.Token(tok.KEYWORDS[result], result, start_line)
-        else:
-            raise LexerError(
-                f"Lexer Error (line {start_line}): Unknown word '{result}'. "
-                f"Did you forget quotes around a name?"
-            )
+    def t_error(self, t):
+        raise LexerError(
+            f"Lexer Error (line {t.lineno}): Unexpected character '{t.value[0]}'."
+        )
 
     def tokenize(self):
+        self.lexer.input(self.source)
         token_list = []
 
-        while self.current_char() is not None:
-            ch = self.current_char()
+        while True:
+            token = self.lexer.token()
+            if token is None:
+                break
+            token_list.append(tok.Token(token.type, token.value, token.lineno, token.lexpos))
 
-            if ch in " \t\n\r":
-                self.skip_whitespace()
-                continue
-
-            if ch == "#":
-                self.skip_comment()
-                continue
-
-            if ch == '"':
-                token_list.append(self.read_string())
-                continue
-
-            if ch.isdigit():
-                token_list.append(self.read_number())
-                continue
-
-            if ch == "-" and self.peek() is not None and self.peek().isdigit():
-                start_line = self.line
-                self.advance()  
-                num_token = self.read_number()
-                token_list.append(tok.Token(tok.NUMBER, -num_token.value, start_line))
-                continue
-
-            if ch.isalpha():
-                token_list.append(self.read_word())
-                continue
-
-            raise LexerError(
-                f"Lexer Error (line {self.line}): Unexpected character '{ch}'."
-            )
-
-        token_list.append(tok.Token(tok.EOF, None, self.line))
         return token_list
